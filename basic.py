@@ -1,11 +1,8 @@
 #######################################
 # IMPORTS
 #######################################
-
-#from cgitb import text
-#from turtle import left, right
-#from xml.dom.minicompat import NodeList
 from strings_with_arrows import *
+
 import string
 
 #######################################
@@ -38,8 +35,8 @@ class IllegalCharError(Error):
 		super().__init__(pos_start, pos_end, 'Illegal Character', details)
 
 class ExpectedCharError(Error):
-    	def __init__(self, pos_start, pos_end, details):
-		    super().__init__(pos_start, pos_end, 'Expected Character', details)
+    def __init__(self, pos_start, pos_end, details):
+	    super().__init__(pos_start, pos_end, 'Expected Character', details)
   
 class InvalidSyntaxError(Error):
 	def __init__(self, pos_start, pos_end, details=''):
@@ -76,25 +73,25 @@ class RTError(Error):
 #######################################
 
 class Position:
-	def __init__(self, idx, ln, col, fn, ftxt):
-		self.idx = idx
-		self.ln = ln
-		self.col = col
-		self.fn = fn
-		self.ftxt = ftxt
-
-	def advance(self, current_char=None):
-		self.idx += 1
-		self.col += 1
-
-		if current_char == '\n':
-			self.ln += 1
-			self.col = 0
-
-		return self
-
-	def copy(self):
-		return Position(self.idx, self.ln, self.col, self.fn, self.ftxt)
+    def __init__(self, idx, ln, col, fn, ftxt):
+        self.idx = idx
+        self.ln = ln
+        self.col = col
+        self.fn = fn
+        self.ftxt = ftxt
+        
+    def advance(self, current_char=None):
+        self.idx += 1
+        self.col += 1
+        
+        if current_char == '\n':
+            self.ln += 1
+            self.col = 0
+            
+        return self
+    
+    def copy(self):
+        return Position(self.idx, self.ln, self.col, self.fn, self.ftxt)
 
 #######################################
 # TOKENS
@@ -176,7 +173,7 @@ class Lexer:
     def advance(self):
         self.pos.advance(self.current_char)
         self.current_char = self.text[self.pos.idx] if self.pos.idx < len(self.text) else None
-    
+        
     def make_tokens(self):
         tokens = []
         
@@ -193,13 +190,15 @@ class Lexer:
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
             elif self.current_char == '-':
-                tokens.append(Token(TT_MINUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_minus_or_arrow())
             elif self.current_char == '*':
                 tokens.append(Token(TT_MUL, pos_start=self.pos))
                 self.advance()
             elif self.current_char == '/':
                 tokens.append(Token(TT_DIV, pos_start=self.pos))
+                self.advance()
+            elif self.current_char == '^':
+                tokens.append(Token(TT_POW, pos_start=self.pos))
                 self.advance()
             elif self.current_char == '(':
                 tokens.append(Token(TT_LPAREN, pos_start=self.pos))
@@ -244,15 +243,14 @@ class Lexer:
             if self.current_char == '.':
                 if dot_count == 1: break
                 dot_count += 1
-                num_str += '.'
-            else:
-                num_str += self.current_char
+            num_str += self.current_char
             self.advance()
-        
+                
         if dot_count == 0:
             return Token(TT_INT, int(num_str), pos_start, self.pos)
         else:
             return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
+
         
     def make_string(self):
         string = ''
@@ -360,18 +358,19 @@ class NumberNode:
 		return f'{self.tok}'
 
 class StringNode:
-    	def __init__(self, tok):
-            self.tok = tok
-      
-            self.pos_start = self.tok.pos_start
-            self.pos_end = self.tok.pos_end
-            
-        def __repr__(self):
-            return f'{self.tok}'
+    def __init__(self, tok):
+        self.tok = tok
+        
+        self.pos_start = self.tok.pos_start
+        self.pos_end = self.tok.pos_end
+        
+    def __repr__(self):
+        return f'{self.tok}'
 
 class NodoLista:
-    def __init__(self, nodos_elementos, pos_start, pos_end):
-        self.nodos_elementos = nodos_elementos
+    def __init__(self, element_nodes, pos_start, pos_end):
+        self.element_nodes = element_nodes
+        
         self.pos_start = pos_start
         self.pos_end = pos_end
 
@@ -580,7 +579,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
 				self.current_tok.pos_start, self.current_tok.pos_end,
-				"Expected int, float, identifier, '+', '-', '(', '['or 'NOT'"
+				"Expected int, float, identifier, '+', '-', '(', '[', 'IF', 'FOR', 'WHILE', 'FUN' or 'NOT'"
 			))
             
         return res.success(node)
@@ -665,7 +664,6 @@ class Parser:
             self.advance()
             return res.success(VarAccessNode(tok))
         
-        #para el corchete de apertura
         elif tok.type == TT_LPAREN:
             res.register_advancement()
             self.advance()
@@ -680,9 +678,10 @@ class Parser:
 					self.current_tok.pos_start, self.current_tok.pos_end,
 					"Expected ')'"
 				))
-        #para el corchete de cerradura        
-        elif tok.type == TT_DKRAMPO:
-            list_expr = res.register(self.list_expr)
+        
+        #para el corchete de apertura        
+        elif tok.type == TT_MDKRAMPO:
+            list_expr = res.register(self.list_expr())
             if res.error: return res
             return res.success(list_expr)
                 
@@ -708,12 +707,12 @@ class Parser:
         
         return res.failure(InvalidSyntaxError(
 			tok.pos_start, tok.pos_end,
-			"Expected int, float, identifier, '+', '-', '(', '[', 'IF', 'FOR', 'WHILE', 'FUN'"
+			"Expected int, float, identifier, '+', '-', '(', '[', IF', 'FOR', 'WHILE', 'FUN'"
 		))
         
     def list_expr(self):
         res = ParseResult()
-        nodos_elementos = []
+        element_nodes = []
         pos_start = self.current_tok.pos_start.copy()
         
         #cuando no hay el corchete izquierdo
@@ -733,7 +732,7 @@ class Parser:
             res.register_advancement()
             self.advance()
         else:
-            nodos_elementos.append(res.register(self.expr()))
+            element_nodes.append(res.register(self.expr()))
             if res.error:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
@@ -744,22 +743,22 @@ class Parser:
                 res.register_advancement()
                 self.advance()
 
-                nodos_elementos.append(res.register(self.expr()))
-            if res.error: return res
+                element_nodes.append(res.register(self.expr()))
+                if res.error: return res
 
-        if self.current_tok.type != TT_DKRAMPO:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-               f"Expected ',' or '['"
-        ))
-
-        res.register_advancement()
-        self.advance()
-
+            if self.current_tok.type != TT_DKRAMPO:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    f"Expected ',' or ']'"
+                ))
+            
+            res.register_advancement()
+            self.advance()
+        
         return res.success(NodoLista(
-        nodos_elementos,
-         pos_start,
-        self.current_tok.pos_end.copy()
+            element_nodes,
+            pos_start,
+            self.current_tok.pos_end.copy()
         ))
         
     def if_expr(self):
@@ -826,8 +825,8 @@ class Parser:
             
         if not self.current_tok.matches(TT_KEYWORD, 'FOR'):
             return res.failure(InvalidSyntaxError(
-			self.current_tok.pos_start, self.current_tok.pos_end,
-			f"Expected 'FOR'"
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"Expected 'FOR'"
 			))
             
         res.register_advancement()
@@ -836,7 +835,7 @@ class Parser:
         if self.current_tok.type != TT_IDENTIFIER:
             return res.failure(InvalidSyntaxError(
 			self.current_tok.pos_start, self.current_tok.pos_end,
-			"Expected identifier"
+			f"Expected identifier"
 		    ))
                 
         var_name = self.current_tok
@@ -845,8 +844,8 @@ class Parser:
             
         if self.current_tok.type != TT_EQ:
             return res.failure(InvalidSyntaxError(
-		    self.current_tok.pos_start, self.current_tok.pos_end,
-			f"Expected '='"
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"Expected '='"
 			))
                 
         res.register_advancement()
@@ -857,8 +856,8 @@ class Parser:
             
         if not self.current_tok.matches(TT_KEYWORD, 'TO'):
             return res.failure(InvalidSyntaxError(
-		    self.current_tok.pos_start, self.current_tok.pos_end,
-			f"Expected 'TO'"
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"Expected 'TO'"
 		    ))
             
         res.register_advancement()
@@ -991,6 +990,7 @@ class Parser:
 				self.current_tok.pos_start, self.current_tok.pos_end,
 				f"Expected '->'"
 			))
+        
         res.register_advancement()
         self.advance()
         node_to_return = res.register(self.expr())
@@ -1028,21 +1028,23 @@ class Parser:
 #######################################
 
 class RTResult:
-	def __init__(self):
-		self.value = None
-		self.error = None
-
-	def register(self, res):
-		if res.error: self.error = res.error
-		return res.value
+    def __init__(self):
+        self.value = None
+        self.error = None
+    
+    def register(self, res):
+        self.error: self.error = res.error
+        return res.value
+    
 	#para el exito
-	def success(self, value):
-		self.value = value
-		return self
+    def success(self, value):
+        self.value = value
+        return self
+    
 	#para el fracaso
-	def failure(self, error):
-		self.error = error
-		return self
+    def failure(self, error):
+        self.error = error
+        return self
 
 #######################################
 # VALUES
@@ -1055,23 +1057,22 @@ class Value:
     def set_pos(self, pos_start=None, pos_end=None):
         self.pos_start = pos_start
         self.pos_end = pos_end
-        
         return self
     
     def set_context(self, context=None):
         self.context = context
         return self
     
-    def added_to(self, other):
+    def sumando_con(self, other):
         return None, self.illegal_operation(other)
     
-    def subbed_by(self, other):
+    def restando_con(self, other):
         return None, self.illegal_operation(other)
     
-    def multed_by(self, other):
+    def multiplicando_por(self, other):
         return None, self.illegal_operation(other)
     
-    def dived_by(self, other):
+    def dividiendo_por(self, other):
         return None, self.illegal_operation(other)
     
     def powed_by(self, other):
@@ -1125,6 +1126,7 @@ class Value:
 
 class Number(Value):
     def __init__(self, value):
+        super().__init__()
         self.value = value
 		#self.set_pos()
 		#self.set_context()
@@ -1149,14 +1151,14 @@ class Number(Value):
 	#para la resta
     def restando_con(self, other):
         if isinstance(other, Number):
-            return Number(self.value - other.value).set_context(self.contexto), None
+            return Number(self.value - other.value).set_context(self.context), None
         else:
             return None, Value.illegal_operation(self, other)
         
 	#para la multiplicacion
     def multiplicando_por(self, other):
         if isinstance(other, Number):
-            return Number(self.value * other.value).set_context(self.contexto), None
+            return Number(self.value * other.value).set_context(self.context), None
         else:
             return None, Value.illegal_operation(self, other)
         
@@ -1167,10 +1169,10 @@ class Number(Value):
                 return None, RTError(
 					other.pos_start, other.pos_end,
 					'Division by zero',
-					self.contexto
+					self.context
 				)
                 
-            return Number(self.value / other.value).set_context(self.contexto), None
+            return Number(self.value / other.value).set_context(self.context), None
         else:
             return None, Value.illegal_operation(self, other)
     
@@ -1249,13 +1251,13 @@ class String(Value):
         super().__init__()
         self.value = value
         
-    def added_to(self, other):
+    def sumando_con(self, other):
         if isinstance(other, String):
             return String(self.value + other.value).set_context(self.context), None
         else:
             return None, Value.illegal_operation(self, other)
         
-    def multed_by(self, other):
+    def multiplicando_por(self, other):
         if isinstance(other, Number):
             return String(self.value * other.value).set_context(self.context), None
         else:
@@ -1274,39 +1276,38 @@ class String(Value):
         return f'"{self.value}"'
 
 class Lista(Value):
-    def __init__(self, elementos):
+    def __init__(self, elements):
         super().__init__()
-        self.elementos = elementos
+        self.elements = elements
     
     #para agregar un valor
     def sumando_con(self, other):
-        nueva_lista = self.copy()
-        nueva_lista.elementos.append(other)
-        return nueva_lista, None
+        new_list = self.copy()
+        new_list.elements.append(other)
+        return new_list, None
     
     #para quitar un elemento de la lista
     def restando_con(self, other):
         if isinstance(other, Number):
-            nueva_lista = self.copy()
+            new_list = self.copy()
             try:
-                nueva_lista.elementos.pop(other.value)
-                return nueva_lista, None
+                new_list.elements.pop(other.value)
+                return new_list, None
             except:
                 return None, RTError(
                     other.pos_start, other.pos_end,
                     'Element at this index could not be removed from list because index is out of bounds',
                     self.context
                 )
-                
         else: 
             return None, Value.illegal_operation(self, other)
     
     #para agregar otra lista
     def multiplicando_por(self, other):
         if isinstance(other, Lista):
-            nueva_lista = self.copy()
-            nueva_lista.elementos.extend(other.elementos)
-            return nueva_lista, None
+            new_list = self.copy()
+            new_list.elements.extend(other.elements)
+            return new_list, None
         else:
             return None, Value.illegal_operation(self, other)
         
@@ -1314,7 +1315,7 @@ class Lista(Value):
     def dividiendo_por(self, other):
         if isinstance(other, Number):
             try:
-                return self.elementos[other.value], None
+                return self.elements[other.value], None
             except:
                 return None, RTError(
                     other.pos_start, other.pos_end,
@@ -1326,7 +1327,7 @@ class Lista(Value):
         
     #para realizar las copias
     def copy(self):
-        copy = Lista(self.elementos[:])
+        copy = Lista(self.elements[:])
         copy.set_pos(self.pos_start, self.pos_end)
         copy.set_context(self.context)
         return copy
@@ -1359,7 +1360,7 @@ class Function(Value):
                 self.pos_start, self.pos_end,
                 f"{len(self.arg_names) - len(args)} too few args passed into '{self.name}'",
                 self.context
-                ))
+            ))
             
         for i in range(len(args)):
             arg_name = self.arg_names[i]
@@ -1412,7 +1413,7 @@ class SymbolTable:
 		del self.symbols[name]
 
 #########################################
-######### ANALIZADOR SINTACTICO #########
+######### ANALIZADOR Semantico #########
 #########################################
 
 class Semantico:
@@ -1432,7 +1433,7 @@ class Semantico:
         #print("Nodo number encontrado!")
         return RTResult().success(
     		Number(node.tok.value).set_context(contexto).set_pos(node.pos_start, node.pos_end)
-     	 )
+     	)
     def visit_StringNode(self, node, context):
         return RTResult().success(
             String(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
@@ -1440,13 +1441,14 @@ class Semantico:
     #para cuando visitamos un nodo Lista
     def visita_NodoLista(self, node, contexto):
         res = RTResult()
-        elementos = []
+        elements = []
         
-        for nodos_elementos in node.nodos_elementos:
-            elementos.append(res.register(self.visita(nodos_elementos, contexto)))
+        for element_nodes in node.element_nodes:
+            elements.append(res.register(self.visita(element_nodes, contexto)))
             if res.error: return res
+        
         return res.success(
-            Lista(elementos).set_context(contexto).set_pos(node.pos_start, node.pos_end)
+            Lista(elements).set_context(contexto).set_pos(node.pos_start, node.pos_end)
         )
     
     def visit_VarAccessNode(self, node, context):
@@ -1481,6 +1483,7 @@ class Semantico:
         if res.error: return res
         right = res.register(self.visita(node.right_node, contexto))
         if res.error: return res
+        
         #Trabaja con las diferentes operaciones (+,-,*,/)
         if node.op_tok.type == TT_PLUS:
             result, error = left.sumando_con(right)
@@ -1525,6 +1528,8 @@ class Semantico:
         
         if node.op_tok.type == TT_MINUS:
             number, error = number.multiplicando_por(Number(-1))
+        elif node.op_tok.matches(TT_KEYWORD, 'NOT'):
+            number, error = number.notted()
             
         if error:
             return res.failure(error)
@@ -1535,16 +1540,16 @@ class Semantico:
         res = RTResult()
         
         for condition, expr in node.cases:
-            condition_value = res.register(self.visit(condition, context))
+            condition_value = res.register(self.visita(condition, context))
             if res.error: return res
             
             if condition_value.is_true():
-                expr_value = res.register(self.visit(expr, context))
+                expr_value = res.register(self.visita(expr, context))
                 if res.error: return res
                 return res.success(expr_value)
         
         if node.else_case:
-            else_value = res.register(self.visit(node.else_case, context))
+            else_value = res.register(self.visita(node.else_case, context))
             if res.error: return res
             return res.success(else_value)
         
@@ -1552,16 +1557,16 @@ class Semantico:
     
     def visit_ForNode(self, node, context):
         res = RTResult()
-        elementos = []
+        elements = []
         
-        start_value = res.register(self.visit(node.start_value_node, context))
+        start_value = res.register(self.visita(node.start_value_node, context))
         if res.error: return res
         
-        end_value = res.register(self.visit(node.end_value_node, context))
+        end_value = res.register(self.visita(node.end_value_node, context))
         if res.error: return res
         
         if node.step_value_node:
-            step_value = res.register(self.visit(node.step_value_node, context))
+            step_value = res.register(self.visita(node.step_value_node, context))
             if res.error: return res
         else:
             step_value = Number(1)
@@ -1577,28 +1582,28 @@ class Semantico:
             context.symbol_table.set(node.var_name_tok.value, Number(i))
             i += step_value.value
             
-            elementos.append(res.register(self.visit(node.body_node, context)))
+            elements.append(res.register(self.visita(node.body_node, context)))
             if res.error: return res
             
         return res.success(
-            Lista(elementos).set_context(context).set_pos(node.pos_start, node.pos_end)
+            Lista(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
     
     def visit_WhileNode(self, node, context):
         res = RTResult()
-        elementos = []
+        elements = []
         
         while True:
-            condition = res.register(self.visit(node.condition_node, context))
+            condition = res.register(self.visita(node.condition_node, context))
             if res.error: return res
             
             if not condition.is_true(): break
             
-            elementos.append(res.register(self.visit(node.body_node, context)))
+            elements.append(res.register(self.visita(node.body_node, context)))
             if res.error: return res
             
         return res.success(
-            Lista(elementos).set_context(context).set_pos(node.pos_start, node.pos_end)
+            Lista(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
     
     def visit_FuncDefNode(self, node, context):
@@ -1617,12 +1622,12 @@ class Semantico:
     def visit_CallNode(self, node, context):
         res = RTResult()
         args = []
-        value_to_call = res.register(self.visit(node.node_to_call, context))
+        value_to_call = res.register(self.visita(node.node_to_call, context))
         if res.error: return res
         value_to_call = value_to_call.copy().set_pos(node.pos_start, node.pos_end)
         
         for arg_node in node.arg_nodes:
-            args.append(res.register(self.visit(arg_node, context)))
+            args.append(res.register(self.visita(arg_node, context)))
             if res.error: return res
             
         return_value = res.register(value_to_call.execute(args))
