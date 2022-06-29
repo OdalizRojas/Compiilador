@@ -1033,7 +1033,7 @@ class RTResult:
         self.error = None
     
     def register(self, res):
-        self.error: self.error = res.error
+        self.error = res.error
         return res.value
     
 	#para el exito
@@ -1434,7 +1434,7 @@ class Semantico:
         return RTResult().success(
     		Number(node.tok.value).set_context(contexto).set_pos(node.pos_start, node.pos_end)
      	)
-    def visit_StringNode(self, node, context):
+    def visita_StringNode(self, node, context):
         return RTResult().success(
             String(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
 		) 
@@ -1451,7 +1451,7 @@ class Semantico:
             Lista(elements).set_context(contexto).set_pos(node.pos_start, node.pos_end)
         )
     
-    def visit_VarAccessNode(self, node, context):
+    def visita_VarAccessNode(self, node, context):
         res = RTResult()
         var_name = node.var_name_tok.value
         value = context.symbol_table.get(var_name)
@@ -1466,10 +1466,10 @@ class Semantico:
         value = value.copy().set_pos(node.pos_start, node.pos_end)
         return res.success(value)
     
-    def visit_VarAssignNode(self, node, context):
+    def visita_VarAssignNode(self, node, context):
         res = RTResult()
         var_name = node.var_name_tok.value
-        value = res.register(self.visit(node.value_node, context))
+        value = res.register(self.visita(node.value_node, context))
         if res.error: return res
         
         context.symbol_table.set(var_name, value)
@@ -1536,7 +1536,7 @@ class Semantico:
         else:
             return res.success(number.set_pos(node.pos_start, node.pos_end))
      
-    def visit_IfNode(self, node, context):
+    def visita_IfNode(self, node, context):
         res = RTResult()
         
         for condition, expr in node.cases:
@@ -1555,7 +1555,7 @@ class Semantico:
         
         return res.success(None)
     
-    def visit_ForNode(self, node, context):
+    def visita_ForNode(self, node, context):
         res = RTResult()
         elements = []
         
@@ -1589,7 +1589,7 @@ class Semantico:
             Lista(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
     
-    def visit_WhileNode(self, node, context):
+    def visita_WhileNode(self, node, context):
         res = RTResult()
         elements = []
         
@@ -1606,7 +1606,7 @@ class Semantico:
             Lista(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
     
-    def visit_FuncDefNode(self, node, context):
+    def visita_FuncDefNode(self, node, context):
         res = RTResult()
         
         func_name = node.var_name_tok.value if node.var_name_tok else None
@@ -1619,7 +1619,7 @@ class Semantico:
             
         return res.success(func_value)
     
-    def visit_CallNode(self, node, context):
+    def visita_CallNode(self, node, context):
         res = RTResult()
         args = []
         value_to_call = res.register(self.visita(node.node_to_call, context))
