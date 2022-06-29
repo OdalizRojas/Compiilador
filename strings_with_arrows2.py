@@ -9,7 +9,7 @@ def string_with_arrows(text, pos_start, pos_end):
 	# Generate each line
     line_count = pos_end.ln - pos_start.ln + 1
     for i in range(line_count):
-        # Calculate line columns
+		# Calculate line columns
         line = text[idx_start:idx_end]
         col_start = pos_start.col if i == 0 else 0
         col_end = pos_end.col if i == line_count - 1 else len(line) - 1
