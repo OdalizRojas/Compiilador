@@ -164,7 +164,7 @@ class Token:
     return f'{self.type}'
 
 #######################################
-# LEXER
+# ANALIZADOR LEXICO
 #######################################
 
 class Lexer:
@@ -541,7 +541,7 @@ class ParseResultado:
     return self
 
 #######################################
-# PARSER
+# ANALIZADOR SINTACTICO
 #######################################
 
 class Parser:
@@ -574,7 +574,7 @@ class Parser:
     return res
 
   ###################################
-
+  #para hacer varias lineas de codigo
   def statements(self):
     res = ParseResultado()
     statements = []
@@ -589,7 +589,7 @@ class Parser:
     statements.append(statement)
 
     more_statements = True
-
+    #busca mas lineas de codigo
     while True:
       newline_count = 0
       while self.current_tok.type == TT_NEWLINE:
@@ -1323,16 +1323,16 @@ class Value:
     self.contexto = contexto
     return self
 
-  def added_to(self, other):
+  def sumando_con(self, other):
     return None, self.illegal_operation(other)
 
-  def subbed_by(self, other):
+  def restando_con(self, other):
     return None, self.illegal_operation(other)
 
-  def multed_by(self, other):
+  def multiplicando_por(self, other):
     return None, self.illegal_operation(other)
 
-  def dived_by(self, other):
+  def dividiendo_por(self, other):
     return None, self.illegal_operation(other)
 
   def powed_by(self, other):
@@ -1387,30 +1387,30 @@ class Number(Value):
     super().__init__()
     self.value = value
 
-  def added_to(self, other):
+  def sumando_con(self, other):
     if isinstance(other, Number):
       return Number(self.value + other.value).set_contexto(self.contexto), None
     else:
       return None, Value.illegal_operation(self, other)
 
-  def subbed_by(self, other):
+  def restando_con(self, other):
     if isinstance(other, Number):
       return Number(self.value - other.value).set_contexto(self.contexto), None
     else:
       return None, Value.illegal_operation(self, other)
 
-  def multed_by(self, other):
+  def multiplicando_por(self, other):
     if isinstance(other, Number):
       return Number(self.value * other.value).set_contexto(self.contexto), None
     else:
       return None, Value.illegal_operation(self, other)
 
-  def dived_by(self, other):
+  def dividiendo_por(self, other):
     if isinstance(other, Number):
       if other.value == 0:
         return None, ErrorTiempoEjecucion(
           other.posicion_inicial, other.posicion_final,
-          'Division by zero',
+          'Division por cero',
           self.contexto
         )
 
@@ -1500,13 +1500,13 @@ class String(Value):
     super().__init__()
     self.value = value
 
-  def added_to(self, other):
+  def sumando_con(self, other):
     if isinstance(other, String):
       return String(self.value + other.value).set_contexto(self.contexto), None
     else:
       return None, Value.illegal_operation(self, other)
 
-  def multed_by(self, other):
+  def multiplicando_por(self, other):
     if isinstance(other, Number):
       return String(self.value * other.value).set_contexto(self.contexto), None
     else:
@@ -1532,12 +1532,14 @@ class List(Value):
     super().__init__()
     self.elements = elements
 
-  def added_to(self, other):
+#para agregar un valor
+  def sumando_con(self, other):
     new_list = self.copy()
     new_list.elements.append(other)
     return new_list, None
 
-  def subbed_by(self, other):
+#para quitar un elemento de la List
+  def restando_con(self, other):
     if isinstance(other, Number):
       new_list = self.copy()
       try:
@@ -1546,28 +1548,30 @@ class List(Value):
       except:
         return None, ErrorTiempoEjecucion(
           other.posicion_inicial, other.posicion_final,
-          'Element at this index could not be removed from list because index is out of bounds',
+          'El elemento con este índice no se pudo eliminar de la lista porque el índice está fuera de los límites',
           self.contexto
         )
     else:
       return None, Value.illegal_operation(self, other)
-
-  def multed_by(self, other):
+  
+  #para agregar otra List
+  def multiplicando_por(self, other):
     if isinstance(other, List):
       new_list = self.copy()
       new_list.elements.extend(other.elements)
       return new_list, None
     else:
       return None, Value.illegal_operation(self, other)
-
-  def dived_by(self, other):
+  
+  #para obtener un elemento de la List
+  def dividiendo_por(self, other):
     if isinstance(other, Number):
       try:
         return self.elements[other.value], None
       except:
         return None, ErrorTiempoEjecucion(
           other.posicion_inicial, other.posicion_final,
-          'Element at this index could not be retrieved from list because index is out of bounds',
+          'El elemento con este índice no se pudo obtener de la lista porque el índice está fuera de los límites',
           self.contexto
         )
     else:
@@ -1637,13 +1641,13 @@ class Function(BaseFunction):
 
   def execute(self, args):
     res = RTresultado()
-    interpreter = Interpreter()
+    semantico = Semantico()
     exec_ctx = self.generate_new_contexto()
 
     res.registrar(self.check_and_populate_args(self.arg_names, args, exec_ctx))
     if res.should_return(): return res
 
-    value = res.registrar(interpreter.visit(self.body_node, exec_ctx))
+    value = res.registrar(semantico.recorre(self.body_node, exec_ctx))
     if res.should_return() and res.func_return_value == None: return res
 
     ret_value = (value if self.should_auto_return else None) or res.func_return_value or Number.null
@@ -1667,7 +1671,7 @@ class FuncionBuiltIn(BaseFunction):
     exec_ctx = self.generate_new_contexto()
 
     method_name = f'execute_{self.name}'
-    method = getattr(self, method_name, self.no_visit_method)
+    method = getattr(self, method_name, self.no_recorre_method)
 
     res.registrar(self.check_and_populate_args(method.arg_names, args, exec_ctx))
     if res.should_return(): return res
@@ -1676,7 +1680,7 @@ class FuncionBuiltIn(BaseFunction):
     if res.should_return(): return res
     return res.success(return_value)
 
-  def no_visit_method(self, node, contexto):
+  def no_recorre_method(self, node, contexto):
     raise Exception(f'No execute_{self.name} method defined')
 
   def copy(self):
@@ -1828,43 +1832,44 @@ class SymbolTable:
     del self.symbols[name]
 
 #######################################
-# INTERPRETER
+# ANALIZADOR SEMANTICO
 #######################################
 
-class Interpreter:
-  def visit(self, node, contexto):
-    method_name = f'visit_{type(node).__name__}'
-    method = getattr(self, method_name, self.no_visit_method)
+class Semantico:
+  #para recorrer los nodos
+  def recorre(self, node, contexto):
+    method_name = f'recorre_{type(node).__name__}'
+    method = getattr(self, method_name, self.no_recorre_method)
     return method(node, contexto)
 
-  def no_visit_method(self, node, contexto):
-    raise Exception(f'No visit_{type(node).__name__} method defined')
+  def no_recorre_method(self, node, contexto):
+    raise Exception(f'No recorre_{type(node).__name__} method defined')
 
   ###################################
-
-  def visit_NumberNode(self, node, contexto):
+  #methods de recorrea para cada tipo de nodo numero
+  def recorre_NumberNode(self, node, contexto):
     return RTresultado().success(
       Number(node.tok.value).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_StringNode(self, node, contexto):
+  def recorre_StringNode(self, node, contexto):
     return RTresultado().success(
       String(node.tok.value).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
-
-  def visit_ListNode(self, node, contexto):
+  #para cuando recorreamos un nodo List
+  def recorre_ListNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
     for element_node in node.element_nodes:
-      elements.append(res.registrar(self.visit(element_node, contexto)))
+      elements.append(res.registrar(self.recorre(element_node, contexto)))
       if res.should_return(): return res
 
     return res.success(
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_VarAccessNode(self, node, contexto):
+  def recorre_VarAccessNode(self, node, contexto):
     res = RTresultado()
     var_name = node.var_name_tok.value
     value = contexto.symbol_table.get(var_name)
@@ -1879,30 +1884,32 @@ class Interpreter:
     value = value.copy().set_pos(node.posicion_inicial, node.posicion_final).set_contexto(contexto)
     return res.success(value)
 
-  def visit_VarAssignNode(self, node, contexto):
+  def recorre_VarAssignNode(self, node, contexto):
     res = RTresultado()
     var_name = node.var_name_tok.value
-    value = res.registrar(self.visit(node.value_node, contexto))
+    value = res.registrar(self.recorre(node.value_node, contexto))
     if res.should_return(): return res
 
     contexto.symbol_table.set(var_name, value)
     return res.success(value)
 
-  def visit_BinOpNode(self, node, contexto):
+  def recorre_BinOpNode(self, node, contexto):
     res = RTresultado()
-    left = res.registrar(self.visit(node.left_node, contexto))
+    #como es binario, recorre a la derecha y a la izquierda
+    left = res.registrar(self.recorre(node.left_node, contexto))
     if res.should_return(): return res
-    right = res.registrar(self.visit(node.right_node, contexto))
+    right = res.registrar(self.recorre(node.right_node, contexto))
     if res.should_return(): return res
-
+    
+    #Trabaja con las diferentes tokens
     if node.op_tok.type == TT_PLUS:
-      resultado, error = left.added_to(right)
+      resultado, error = left.sumando_con(right)
     elif node.op_tok.type == TT_MINUS:
-      resultado, error = left.subbed_by(right)
+      resultado, error = left.restando_con(right)
     elif node.op_tok.type == TT_MUL:
-      resultado, error = left.multed_by(right)
+      resultado, error = left.multiplicando_por(right)
     elif node.op_tok.type == TT_DIV:
-      resultado, error = left.dived_by(right)
+      resultado, error = left.dividiendo_por(right)
     elif node.op_tok.type == TT_POW:
       resultado, error = left.powed_by(right)
     elif node.op_tok.type == TT_EE:
@@ -1927,15 +1934,16 @@ class Interpreter:
     else:
       return res.success(resultado.set_pos(node.posicion_inicial, node.posicion_final))
 
-  def visit_UnaryOpNode(self, node, contexto):
+  def recorre_UnaryOpNode(self, node, contexto):
     res = RTresultado()
-    number = res.registrar(self.visit(node.node, contexto))
+    #como es unitario, vuelve a si mismo
+    number = res.registrar(self.recorre(node.node, contexto))
     if res.should_return(): return res
 
     error = None
 
     if node.op_tok.type == TT_MINUS:
-      number, error = number.multed_by(Number(-1))
+      number, error = number.multiplicando_por(Number(-1))
     elif node.op_tok.matches(TT_KEYWORD, 'NOT'):
       number, error = number.notted()
 
@@ -1944,38 +1952,38 @@ class Interpreter:
     else:
       return res.success(number.set_pos(node.posicion_inicial, node.posicion_final))
 
-  def visit_IfNode(self, node, contexto):
+  def recorre_IfNode(self, node, contexto):
     res = RTresultado()
 
     for condition, expr, should_return_null in node.cases:
-      condition_value = res.registrar(self.visit(condition, contexto))
+      condition_value = res.registrar(self.recorre(condition, contexto))
       if res.should_return(): return res
 
       if condition_value.is_true():
-        expr_value = res.registrar(self.visit(expr, contexto))
+        expr_value = res.registrar(self.recorre(expr, contexto))
         if res.should_return(): return res
         return res.success(Number.null if should_return_null else expr_value)
 
     if node.else_case:
       expr, should_return_null = node.else_case
-      expr_value = res.registrar(self.visit(expr, contexto))
+      expr_value = res.registrar(self.recorre(expr, contexto))
       if res.should_return(): return res
       return res.success(Number.null if should_return_null else expr_value)
 
     return res.success(Number.null)
 
-  def visit_ForNode(self, node, contexto):
+  def recorre_ForNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
-    start_value = res.registrar(self.visit(node.start_value_node, contexto))
+    start_value = res.registrar(self.recorre(node.start_value_node, contexto))
     if res.should_return(): return res
 
-    end_value = res.registrar(self.visit(node.end_value_node, contexto))
+    end_value = res.registrar(self.recorre(node.end_value_node, contexto))
     if res.should_return(): return res
 
     if node.step_value_node:
-      step_value = res.registrar(self.visit(node.step_value_node, contexto))
+      step_value = res.registrar(self.recorre(node.step_value_node, contexto))
       if res.should_return(): return res
     else:
       step_value = Number(1)
@@ -1991,7 +1999,7 @@ class Interpreter:
       contexto.symbol_table.set(node.var_name_tok.value, Number(i))
       i += step_value.value
 
-      value = res.registrar(self.visit(node.body_node, contexto))
+      value = res.registrar(self.recorre(node.body_node, contexto))
       if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False: return res
 
       if res.loop_should_continue:
@@ -2007,18 +2015,18 @@ class Interpreter:
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_WhileNode(self, node, contexto):
+  def recorre_WhileNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
     while True:
-      condition = res.registrar(self.visit(node.condition_node, contexto))
+      condition = res.registrar(self.recorre(node.condition_node, contexto))
       if res.should_return(): return res
 
       if not condition.is_true():
         break
 
-      value = res.registrar(self.visit(node.body_node, contexto))
+      value = res.registrar(self.recorre(node.body_node, contexto))
       if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False: return res
 
       if res.loop_should_continue:
@@ -2034,7 +2042,7 @@ class Interpreter:
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_FuncDefNode(self, node, contexto):
+  def recorre_FuncDefNode(self, node, contexto):
     res = RTresultado()
 
     func_name = node.var_name_tok.value if node.var_name_tok else None
@@ -2047,16 +2055,16 @@ class Interpreter:
 
     return res.success(func_value)
 
-  def visit_CallNode(self, node, contexto):
+  def recorre_CallNode(self, node, contexto):
     res = RTresultado()
     args = []
 
-    value_to_call = res.registrar(self.visit(node.node_to_call, contexto))
+    value_to_call = res.registrar(self.recorre(node.node_to_call, contexto))
     if res.should_return(): return res
     value_to_call = value_to_call.copy().set_pos(node.posicion_inicial, node.posicion_final)
 
     for arg_node in node.arg_nodes:
-      args.append(res.registrar(self.visit(arg_node, contexto)))
+      args.append(res.registrar(self.recorre(arg_node, contexto)))
       if res.should_return(): return res
 
     return_value = res.registrar(value_to_call.execute(args))
@@ -2064,21 +2072,21 @@ class Interpreter:
     return_value = return_value.copy().set_pos(node.posicion_inicial, node.posicion_final).set_contexto(contexto)
     return res.success(return_value)
 
-  def visit_ReturnNode(self, node, contexto):
+  def recorre_ReturnNode(self, node, contexto):
     res = RTresultado()
 
     if node.node_to_return:
-      value = res.registrar(self.visit(node.node_to_return, contexto))
+      value = res.registrar(self.recorre(node.node_to_return, contexto))
       if res.should_return(): return res
     else:
       value = Number.null
 
     return res.success_return(value)
 
-  def visit_ContinueNode(self, node, contexto):
+  def recorre_ContinueNode(self, node, contexto):
     return RTresultado().success_continue()
 
-  def visit_BreakNode(self, node, contexto):
+  def recorre_BreakNode(self, node, contexto):
     return RTresultado().success_break()
 
 #######################################
@@ -2115,9 +2123,9 @@ def run(nombre_archivo, text):
   if ast.error: return None, ast.error
 
   # Run program
-  interpreter = Interpreter()
+  semantico = Semantico()
   contexto = Context('<program>')
   contexto.symbol_table = tabla_simbolos_global
-  resultado = interpreter.visit(ast.node, contexto)
+  resultado = semantico.recorre(ast.node, contexto)
 
   return resultado.value, resultado.error
