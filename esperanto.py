@@ -128,17 +128,17 @@ KEYWORDS = [
   'AND',
   'OR',
   'NOT',
-  'IF',
+  'SE',
   'ELIF',
   'ELSE',
-  'FOR',
-  'TO',
+  'POR',
+  'AL',
   'STEP',
   'WHILE',
-  'FUN',
-  'THEN',
-  'END',
-  'RETURN',
+  'FUNKCIO',
+  'DO',
+  'FINI',
+  'REVENO',
   'CONTINUE',
   'BREAK',
 ]
@@ -617,7 +617,7 @@ class Parser:
     res = ParseResultado()
     posicion_inicial = self.current_tok.posicion_inicial.copy()
 
-    if self.current_tok.matches(TT_KEYWORD, 'RETURN'):
+    if self.current_tok.matches(TT_KEYWORD, 'REVENO'):
       res.registrar_avance()
       self.avanzar()
 
@@ -640,7 +640,7 @@ class Parser:
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected 'RETURN', 'CONTINUE', 'BREAK', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+        "Expected 'REVENO', 'CONTINUE', 'BREAK', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
       ))
     return res.success(expr)
 
@@ -678,7 +678,7 @@ class Parser:
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+        "Expected 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
       ))
 
     return res.success(node)
@@ -700,7 +700,7 @@ class Parser:
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected int, float, identifier, '+', '-', '(', '[', 'IF', 'FOR', 'WHILE', 'FUN' or 'NOT'"
+        "Expected int, float, identifier, '+', '-', '(', '[', 'SE', 'POR', 'WHILE', 'FUNKCIO' or 'NOT'"
       ))
 
     return res.success(node)
@@ -745,7 +745,7 @@ class Parser:
         if res.error:
           return res.failure(ErrorSintaxisInvalida(
             self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-            "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+            "Expected ')', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
           ))
 
         while self.current_tok.type == TT_COMMA:
@@ -805,12 +805,12 @@ class Parser:
       if res.error: return res
       return res.success(list_expr)
 
-    elif tok.matches(TT_KEYWORD, 'IF'):
+    elif tok.matches(TT_KEYWORD, 'SE'):
       if_expr = res.registrar(self.if_expr())
       if res.error: return res
       return res.success(if_expr)
 
-    elif tok.matches(TT_KEYWORD, 'FOR'):
+    elif tok.matches(TT_KEYWORD, 'POR'):
       for_expr = res.registrar(self.for_expr())
       if res.error: return res
       return res.success(for_expr)
@@ -820,14 +820,14 @@ class Parser:
       if res.error: return res
       return res.success(while_expr)
 
-    elif tok.matches(TT_KEYWORD, 'FUN'):
+    elif tok.matches(TT_KEYWORD, 'FUNKCIO'):
       func_def = res.registrar(self.func_def())
       if res.error: return res
       return res.success(func_def)
 
     return res.failure(ErrorSintaxisInvalida(
       tok.posicion_inicial, tok.posicion_final,
-      "Expected int, float, identifier, '+', '-', '(', '[', IF', 'FOR', 'WHILE', 'FUN'"
+      "Expected int, float, identifier, '+', '-', '(', '[', IF', 'POR', 'WHILE', 'FUNKCIO'"
     ))
 
   def list_expr(self):
@@ -852,7 +852,7 @@ class Parser:
       if res.error:
         return res.failure(ErrorSintaxisInvalida(
           self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-          "Expected ']', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+          "Expected ']', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
         ))
 
       while self.current_tok.type == TT_COMMA:
@@ -879,7 +879,7 @@ class Parser:
 
   def if_expr(self):
     res = ParseResultado()
-    all_cases = res.registrar(self.if_expr_cases('IF'))
+    all_cases = res.registrar(self.if_expr_cases('SE'))
     if res.error: return res
     cases, else_case = all_cases
     return res.success(IfNode(cases, else_case))
@@ -903,13 +903,13 @@ class Parser:
         if res.error: return res
         else_case = (statements, True)
 
-        if self.current_tok.matches(TT_KEYWORD, 'END'):
+        if self.current_tok.matches(TT_KEYWORD, 'FINI'):
           res.registrar_avance()
           self.avanzar()
         else:
           return res.failure(ErrorSintaxisInvalida(
             self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-            "Expected 'END'"
+            "Expected 'FINI'"
           ))
       else:
         expr = res.registrar(self.statement())
@@ -949,10 +949,10 @@ class Parser:
     condition = res.registrar(self.expr())
     if res.error: return res
 
-    if not self.current_tok.matches(TT_KEYWORD, 'THEN'):
+    if not self.current_tok.matches(TT_KEYWORD, 'DO'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'THEN'"
+        f"Expected 'DO'"
       ))
 
     res.registrar_avance()
@@ -964,9 +964,9 @@ class Parser:
 
       statements = res.registrar(self.statements())
       if res.error: return res
-      cases.append((condition, statements, True))
+      cases.appFINI((condition, statements, True))
 
-      if self.current_tok.matches(TT_KEYWORD, 'END'):
+      if self.current_tok.matches(TT_KEYWORD, 'FINI'):
         res.registrar_avance()
         self.avanzar()
       else:
@@ -989,10 +989,10 @@ class Parser:
   def for_expr(self):
     res = ParseResultado()
 
-    if not self.current_tok.matches(TT_KEYWORD, 'FOR'):
+    if not self.current_tok.matches(TT_KEYWORD, 'POR'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'FOR'"
+        f"Expected 'POR'"
       ))
 
     res.registrar_avance()
@@ -1020,10 +1020,10 @@ class Parser:
     start_value = res.registrar(self.expr())
     if res.error: return res
 
-    if not self.current_tok.matches(TT_KEYWORD, 'TO'):
+    if not self.current_tok.matches(TT_KEYWORD, 'AL'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'TO'"
+        f"Expected 'AL'"
       ))
 
     res.registrar_avance()
@@ -1041,10 +1041,10 @@ class Parser:
     else:
       step_value = None
 
-    if not self.current_tok.matches(TT_KEYWORD, 'THEN'):
+    if not self.current_tok.matches(TT_KEYWORD, 'DO'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'THEN'"
+        f"Expected 'DO'"
       ))
 
     res.registrar_avance()
@@ -1057,10 +1057,10 @@ class Parser:
       body = res.registrar(self.statements())
       if res.error: return res
 
-      if not self.current_tok.matches(TT_KEYWORD, 'END'):
+      if not self.current_tok.matches(TT_KEYWORD, 'FINI'):
         return res.failure(ErrorSintaxisInvalida(
           self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-          f"Expected 'END'"
+          f"Expected 'FINI'"
         ))
 
       res.registrar_avance()
@@ -1088,10 +1088,10 @@ class Parser:
     condition = res.registrar(self.expr())
     if res.error: return res
 
-    if not self.current_tok.matches(TT_KEYWORD, 'THEN'):
+    if not self.current_tok.matches(TT_KEYWORD, 'DO'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'THEN'"
+        f"Expected 'DO'"
       ))
 
     res.registrar_avance()
@@ -1104,10 +1104,10 @@ class Parser:
       body = res.registrar(self.statements())
       if res.error: return res
 
-      if not self.current_tok.matches(TT_KEYWORD, 'END'):
+      if not self.current_tok.matches(TT_KEYWORD, 'FINI'):
         return res.failure(ErrorSintaxisInvalida(
           self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-          f"Expected 'END'"
+          f"Expected 'FINI'"
         ))
 
       res.registrar_avance()
@@ -1123,10 +1123,10 @@ class Parser:
   def func_def(self):
     res = ParseResultado()
 
-    if not self.current_tok.matches(TT_KEYWORD, 'FUN'):
+    if not self.current_tok.matches(TT_KEYWORD, 'FUNKCIO'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'FUN'"
+        f"Expected 'FUNKCIO'"
       ))
 
     res.registrar_avance()
@@ -1213,10 +1213,10 @@ class Parser:
     body = res.registrar(self.statements())
     if res.error: return res
 
-    if not self.current_tok.matches(TT_KEYWORD, 'END'):
+    if not self.current_tok.matches(TT_KEYWORD, 'FINI'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'END'"
+        f"Expected 'FINI'"
       ))
 
     res.registrar_avance()
@@ -1691,34 +1691,12 @@ class FuncionBuiltIn(BaseFunction):
   #####################################
 
   def execute_print(self, exec_ctx):
-    print(str(exec_ctx.symbol_table.get('value')))
+    global output
+    output =str(exec_ctx.symbol_table.get('value'))
+    print(output)
     return RTresultado().success(Number.null)
   execute_print.arg_names = ['value']
 
-  def execute_print_ret(self, exec_ctx):
-    return RTresultado().success(String(str(exec_ctx.symbol_table.get('value'))))
-  execute_print_ret.arg_names = ['value']
-
-  def execute_input(self, exec_ctx):
-    text = input()
-    return RTresultado().success(String(text))
-  execute_input.arg_names = []
-
-  def execute_input_int(self, exec_ctx):
-    while True:
-      text = input()
-      try:
-        number = int(text)
-        break
-      except ValueError:
-        print(f"'{text}' must be an integer. Try again!")
-    return RTresultado().success(Number(number))
-  execute_input_int.arg_names = []
-
-  def execute_clear(self, exec_ctx):
-    os.system('cls' if os.name == 'nt' else 'cls')
-    return RTresultado().success(Number.null)
-  execute_clear.arg_names = []
 
   def execute_is_number(self, exec_ctx):
     is_number = isinstance(exec_ctx.symbol_table.get("value"), Number)
@@ -1730,59 +1708,9 @@ class FuncionBuiltIn(BaseFunction):
     return RTresultado().success(Number.true if is_number else Number.false)
   execute_is_string.arg_names = ["value"]
 
-  def execute_is_list(self, exec_ctx):
-    is_number = isinstance(exec_ctx.symbol_table.get("value"), List)
-    return RTresultado().success(Number.true if is_number else Number.false)
-  execute_is_list.arg_names = ["value"]
 
-  def execute_is_function(self, exec_ctx):
-    is_number = isinstance(exec_ctx.symbol_table.get("value"), BaseFunction)
-    return RTresultado().success(Number.true if is_number else Number.false)
-  execute_is_function.arg_names = ["value"]
 
-  def execute_append(self, exec_ctx):
-    list_ = exec_ctx.symbol_table.get("list")
-    value = exec_ctx.symbol_table.get("value")
 
-    if not isinstance(list_, List):
-      return RTresultado().failure(ErrorTiempoEjecucion(
-        self.posicion_inicial, self.posicion_final,
-        "First argument must be list",
-        exec_ctx
-      ))
-
-    list_.elements.append(value)
-    return RTresultado().success(Number.null)
-  execute_append.arg_names = ["list", "value"]
-
-  def execute_pop(self, exec_ctx):
-    list_ = exec_ctx.symbol_table.get("list")
-    index = exec_ctx.symbol_table.get("index")
-
-    if not isinstance(list_, List):
-      return RTresultado().failure(ErrorTiempoEjecucion(
-        self.posicion_inicial, self.posicion_final,
-        "First argument must be list",
-        exec_ctx
-      ))
-
-    if not isinstance(index, Number):
-      return RTresultado().failure(ErrorTiempoEjecucion(
-        self.posicion_inicial, self.posicion_final,
-        "Second argument must be number",
-        exec_ctx
-      ))
-
-    try:
-      element = list_.elements.pop(index.value)
-    except:
-      return RTresultado().failure(ErrorTiempoEjecucion(
-        self.posicion_inicial, self.posicion_final,
-        'Element at this index could not be removed from list because index is out of bounds',
-        exec_ctx
-      ))
-    return RTresultado().success(element)
-  execute_pop.arg_names = ["list", "index"]
 
   def execute_extend(self, exec_ctx):
     listA = exec_ctx.symbol_table.get("listA")
@@ -1858,13 +1786,11 @@ FuncionBuiltIn.print       = FuncionBuiltIn("print")
 FuncionBuiltIn.print_ret   = FuncionBuiltIn("print_ret")
 FuncionBuiltIn.input       = FuncionBuiltIn("input")
 FuncionBuiltIn.input_int   = FuncionBuiltIn("input_int")
-FuncionBuiltIn.clear       = FuncionBuiltIn("clear")
 FuncionBuiltIn.is_number   = FuncionBuiltIn("is_number")
 FuncionBuiltIn.is_string   = FuncionBuiltIn("is_string")
 FuncionBuiltIn.is_list     = FuncionBuiltIn("is_list")
 FuncionBuiltIn.is_function = FuncionBuiltIn("is_function")
 FuncionBuiltIn.append      = FuncionBuiltIn("append")
-FuncionBuiltIn.pop         = FuncionBuiltIn("pop")
 FuncionBuiltIn.extend      = FuncionBuiltIn("extend")
 FuncionBuiltIn.len		   = FuncionBuiltIn("len")
 FuncionBuiltIn.run		   = FuncionBuiltIn("run")
@@ -2164,20 +2090,17 @@ tabla_simbolos_global.set("NULL", Number.null)
 tabla_simbolos_global.set("FALSE", Number.false)
 tabla_simbolos_global.set("TRUE", Number.true)
 tabla_simbolos_global.set("MATH_PI", Number.math_PI)
-tabla_simbolos_global.set("PRINT", FuncionBuiltIn.print)
+tabla_simbolos_global.set("PRESI", FuncionBuiltIn.print)
 tabla_simbolos_global.set("PRINT_RET", FuncionBuiltIn.print_ret)
 tabla_simbolos_global.set("INPUT", FuncionBuiltIn.input)
 tabla_simbolos_global.set("INPUT_INT", FuncionBuiltIn.input_int)
-tabla_simbolos_global.set("CLEAR", FuncionBuiltIn.clear)
-tabla_simbolos_global.set("CLS", FuncionBuiltIn.clear)
 tabla_simbolos_global.set("IS_NUM", FuncionBuiltIn.is_number)
 tabla_simbolos_global.set("IS_STR", FuncionBuiltIn.is_string)
 tabla_simbolos_global.set("IS_LIST", FuncionBuiltIn.is_list)
 tabla_simbolos_global.set("IS_FUN", FuncionBuiltIn.is_function)
 tabla_simbolos_global.set("APPEND", FuncionBuiltIn.append)
-tabla_simbolos_global.set("POP", FuncionBuiltIn.pop)
 tabla_simbolos_global.set("EXTEND", FuncionBuiltIn.extend)
-tabla_simbolos_global.set("LEN", FuncionBuiltIn.len)
+tabla_simbolos_global.set("LONGECO", FuncionBuiltIn.len)
 tabla_simbolos_global.set("RUN", FuncionBuiltIn.run)
 
 def run(nombre_archivo, text):

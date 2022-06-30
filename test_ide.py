@@ -1,4 +1,5 @@
 from tkinter import *
+import esperanto
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 import subprocess
 
@@ -6,13 +7,12 @@ compiler = Tk()
 compiler.title('Esperanto UPB IDE')
 file_path = ''
 
-
 def set_file_path(path):
     global file_path
     file_path = path
 
 def open_file():
-    path = askopenfilename(filetypes=[('Esperanto Files', '*.esp')])
+    path = askopenfilename(filetypes=[('Python Files', '*.myopl')])
     with open(path, 'r') as file:
         code = file.read()
         editor.delete('1.0', END)
@@ -21,8 +21,9 @@ def open_file():
 
 def save_as():
     if file_path == '':
-        path = asksaveasfilename(filetypes=[('Esperanto Files', '*.esp')])
+        pass
     else:
+        path = asksaveasfilename(filetypes=[('Python Files', '*.myopl')])
         path = file_path
     with open(path, 'w') as file:
         code = editor.get('1.0', END)
@@ -30,18 +31,40 @@ def save_as():
         set_file_path(path)
 
 
-def run():
-    if file_path == '':
-        save_prompt = Toplevel()
-        text = Label(save_prompt, text='Please save your code')
-        text.pack()
-        return
-    "Popen ejecuta un child program en un nuevo proceso"
-    command = f'string {file_path}'
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    output, error = process.communicate()
-    code_output.insert('1.0', output)
-    code_output.insert('1.0',  error)
+def run(event=None):
+    global code, file_path
+
+    code = editor.get(1.0, END)
+
+    if True:
+        result, error = esperanto.run('<stdin>', code)
+        if error:
+            # delete the previous text from output_windows
+            editor.delete(1.0, END)
+            code_output.insert(1.0, error.as_string())
+            print(error.as_string())
+        elif result:
+            if len(result.elements) == 1:
+                print(repr(result.elements[0]))
+                # delete the previous text from output_windows
+                code_output.delete(1.0, END)
+                #print tokens
+                #print_tokens(cat.tokens)
+                # insert the new output text in output_windows
+                code_output.insert(1.0, repr(result.elements[0]))
+                code_output.insert(1.0, "\n")
+                code_output.insert(1.0, esperanto.output)
+
+            else:
+                print(result)
+                # delete the previous text from output_windows
+                code_output.delete(1.0, END)
+                #print tokens
+                #print_tokens(cat.tokens)
+                # insert the new output text in output_windows
+                code_output.insert(1.0, repr(result.elements))
+                code_output.insert(1.0, "\n")
+                code_output.insert(1.0, esperanto.output)
 
 
 menu_bar = Menu(compiler)
