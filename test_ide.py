@@ -1,3 +1,4 @@
+import tkinter
 from tkinter import *
 import esperanto
 from tkinter.filedialog import asksaveasfilename, askopenfilename
@@ -82,10 +83,16 @@ menu_bar.add_cascade(label='Run', menu=run_bar)
 
 compiler.config(menu=menu_bar)
 
-editor = Text()
-editor.pack()
 
-code_output = Text(height=10)
-code_output.pack()
+editor = tkinter.Text(compiler, bg="#acdeaa")
+editor.pack(fill=tkinter.BOTH, expand=True)
+scroll_bar = Scrollbar(master=editor)
 
+division_bar = Menu()
+division = Menu(division_bar, tearoff=0)
+
+code_output = Text(height=15, bg="#8fbbaf")
+code_output.pack(fill=tkinter.BOTH, expand=True)
+division.add_command(label='Resultado')
+division.add_command(label='Errores')
 compiler.mainloop()
