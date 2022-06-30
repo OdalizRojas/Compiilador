@@ -1,101 +1,12 @@
-#######################################
-# IMPORTS
-#######################################
-
-from strings_with_arrows import *
+from identificar_formato import *
 
 import string
 import os
 import math
 
-#######################################
-# CONSTANTS
-#######################################
-
 NUMEROS = '0123456789'
 LETRAS = string.ascii_letters
 LETRAS_NUMEROS = LETRAS + NUMEROS
-
-#######################################
-# ERRORS
-#######################################
-
-class ManejoErrores:
-  def __init__(self, posicion_inicial, posicion_final, tipo_error, detalles):
-    self.posicion_inicial = posicion_inicial
-    self.posicion_final = posicion_final
-    self.tipo_error = tipo_error
-    self.detalles = detalles
-
-  def como_string(self):
-    resultado  = f'{self.tipo_error}: {self.detalles}\n'
-    resultado += f'Archivo {self.posicion_inicial.nombre_archivo}, linea {self.posicion_inicial.ln + 1}'
-    resultado += '\n\n' + string_with_arrows(self.posicion_inicial.texto_archivo, self.posicion_inicial, self.posicion_final)
-    return resultado
-
-class ErrorCaracterIlegal(ManejoErrores):
-  def __init__(self, posicion_inicial, posicion_final, detalles):
-    super().__init__(posicion_inicial, posicion_final, 'Caracter Ilegal', detalles)
-
-class ErrorCaracterEsperado(ManejoErrores):
-  def __init__(self, posicion_inicial, posicion_final, detalles):
-    super().__init__(posicion_inicial, posicion_final, 'Se esperaba un caracter.', detalles)
-
-class ErrorSintaxisInvalida(ManejoErrores):
-  def __init__(self, posicion_inicial, posicion_final, detalles=''):
-    super().__init__(posicion_inicial, posicion_final, 'Sintaxis Invalida', detalles)
-
-class ErrorTiempoEjecucion(ManejoErrores):
-  def __init__(self, posicion_inicial, posicion_final, detalles, contexto):
-    super().__init__(posicion_inicial, posicion_final, 'Error Tiempo de Ejecucion', detalles)
-    self.contexto = contexto
-
-  def as_string(self):
-    resultado  = self.generar_rastreo()
-    resultado += f'{self.tipo_error}: {self.detalles}'
-    resultado += '\n\n' + string_with_arrows(self.posicion_inicial.texto_archivo, self.posicion_inicial, self.posicion_final)
-    return resultado
-
-  def generar_rastreo(self):
-    resultado = ''
-    pos = self.posicion_inicial
-    ctx = self.contexto
-
-    while ctx:
-      resultado = f'  File {pos.nombre_archivo}, line {str(pos.ln + 1)}, in {ctx.display_name}\n' + resultado
-      pos = ctx.parent_entry_pos
-      ctx = ctx.parent
-
-    return 'Rastreo (la ultima llamada mas reciente):\n' + resultado
-
-#######################################
-# Posicion
-#######################################
-
-class Posicion:
-  def __init__(self, idx, ln, col, nombre_archivo, texto_archivo):
-    self.idx = idx
-    self.ln = ln
-    self.col = col
-    self.nombre_archivo = nombre_archivo
-    self.texto_archivo = texto_archivo
-
-  def avanzar(self, caracter_actual=None):
-    self.idx += 1
-    self.col += 1
-
-    if caracter_actual == '\n':
-      self.ln += 1
-      self.col = 0
-
-    return self
-
-  def copy(self):
-    return Posicion(self.idx, self.ln, self.col, self.nombre_archivo, self.texto_archivo)
-
-#######################################
-# TOKENS
-#######################################
 
 TT_INT				= 'INT'
 TT_FLOAT    	= 'FLOAT'
@@ -125,23 +36,46 @@ TT_EOF				= 'EOF'
 
 KEYWORDS = [
   'VAR',
-  'AND',
-  'OR',
-  'NOT',
+  'KAJ',
+  'AU',
+  'NE',
   'SE',
   'ELIF',
-  'ELSE',
+  'ALIE',
   'POR',
   'AL',
-  'STEP',
-  'WHILE',
+  'PASO',
+  'DUM',
   'FUNKCIO',
   'DO',
   'FINI',
   'REVENO',
-  'CONTINUE',
+  'DAURU',
   'BREAK',
 ]
+
+
+class Posicion:
+  def __init__(self, idx, ln, col, nombre_archivo, texto_archivo):
+    self.idx = idx
+    self.ln = ln
+    self.col = col
+    self.nombre_archivo = nombre_archivo
+    self.texto_archivo = texto_archivo
+
+  def avanzar(self, caracter_actual=None):
+    self.idx += 1
+    self.col += 1
+
+    if caracter_actual == '\n':
+      self.ln += 1
+      self.col = 0
+
+    return self
+
+  def copy(self):
+    return Posicion(self.idx, self.ln, self.col, self.nombre_archivo, self.texto_archivo)
+
 
 class Token:
   def __init__(self, type_, value=None, posicion_inicial=None, posicion_final=None):
@@ -167,7 +101,7 @@ class Token:
 # LEXER
 #######################################
 
-class Lexer:
+class AnalizadorLexico:
   def __init__(self, nombre_archivo, text):
     self.nombre_archivo = nombre_archivo
     self.text = text
@@ -544,7 +478,7 @@ class ParseResultado:
 # PARSER
 #######################################
 
-class Parser:
+class AnalizadorSintactico:
   def __init__(self, tokens):
     self.tokens = tokens
     self.tok_idx = -1
@@ -552,15 +486,15 @@ class Parser:
 
   def avanzar(self):
     self.tok_idx += 1
-    self.update_current_tok()
+    self.actualizar_token_actual()
     return self.current_tok
 
   def reverse(self, amount=1):
     self.tok_idx -= amount
-    self.update_current_tok()
+    self.actualizar_token_actual()
     return self.current_tok
 
-  def update_current_tok(self):
+  def actualizar_token_actual(self):
     if self.tok_idx >= 0 and self.tok_idx < len(self.tokens):
       self.current_tok = self.tokens[self.tok_idx]
 
@@ -573,7 +507,6 @@ class Parser:
       ))
     return res
 
-  ###################################
 
   def statements(self):
     res = ParseResultado()
@@ -626,7 +559,7 @@ class Parser:
         self.reverse(res.to_reverse_count)
       return res.success(ReturnNode(expr, posicion_inicial, self.current_tok.posicion_inicial.copy()))
 
-    if self.current_tok.matches(TT_KEYWORD, 'CONTINUE'):
+    if self.current_tok.matches(TT_KEYWORD, 'DAURU'):
       res.registrar_avance()
       self.avanzar()
       return res.success(ContinueNode(posicion_inicial, self.current_tok.posicion_inicial.copy()))
@@ -640,7 +573,7 @@ class Parser:
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected 'REVENO', 'CONTINUE', 'BREAK', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+        "Expected 'REVENO', 'DAURU', 'BREAK', 'VAR', 'SE', 'POR', 'DUM', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NE'"
       ))
     return res.success(expr)
 
@@ -673,12 +606,12 @@ class Parser:
       if res.error: return res
       return res.success(VarAssignNode(var_name, expr))
 
-    node = res.registrar(self.bin_op(self.comp_expr, ((TT_KEYWORD, 'AND'), (TT_KEYWORD, 'OR'))))
+    node = res.registrar(self.bin_op(self.comp_expr, ((TT_KEYWORD, 'KAJ'), (TT_KEYWORD, 'AU'))))
 
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+        "Expected 'VAR', 'SE', 'POR', 'DUM', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NE'"
       ))
 
     return res.success(node)
@@ -686,7 +619,7 @@ class Parser:
   def comp_expr(self):
     res = ParseResultado()
 
-    if self.current_tok.matches(TT_KEYWORD, 'NOT'):
+    if self.current_tok.matches(TT_KEYWORD, 'NE'):
       op_tok = self.current_tok
       res.registrar_avance()
       self.avanzar()
@@ -700,7 +633,7 @@ class Parser:
     if res.error:
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        "Expected int, float, identifier, '+', '-', '(', '[', 'SE', 'POR', 'WHILE', 'FUNKCIO' or 'NOT'"
+        "Expected int, float, identifier, '+', '-', '(', '[', 'SE', 'POR', 'DUM', 'FUNKCIO' or 'NE'"
       ))
 
     return res.success(node)
@@ -745,7 +678,7 @@ class Parser:
         if res.error:
           return res.failure(ErrorSintaxisInvalida(
             self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-            "Expected ')', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+            "Expected ')', 'VAR', 'SE', 'POR', 'DUM', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NE'"
           ))
 
         while self.current_tok.type == TT_COMMA:
@@ -815,7 +748,7 @@ class Parser:
       if res.error: return res
       return res.success(for_expr)
 
-    elif tok.matches(TT_KEYWORD, 'WHILE'):
+    elif tok.matches(TT_KEYWORD, 'DUM'):
       while_expr = res.registrar(self.while_expr())
       if res.error: return res
       return res.success(while_expr)
@@ -827,7 +760,7 @@ class Parser:
 
     return res.failure(ErrorSintaxisInvalida(
       tok.posicion_inicial, tok.posicion_final,
-      "Expected int, float, identifier, '+', '-', '(', '[', IF', 'POR', 'WHILE', 'FUNKCIO'"
+      "Expected int, float, identifier, '+', '-', '(', '[', IF', 'POR', 'DUM', 'FUNKCIO'"
     ))
 
   def list_expr(self):
@@ -852,7 +785,7 @@ class Parser:
       if res.error:
         return res.failure(ErrorSintaxisInvalida(
           self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-          "Expected ']', 'VAR', 'SE', 'POR', 'WHILE', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+          "Expected ']', 'VAR', 'SE', 'POR', 'DUM', 'FUNKCIO', int, float, identifier, '+', '-', '(', '[' or 'NE'"
         ))
 
       while self.current_tok.type == TT_COMMA:
@@ -891,7 +824,7 @@ class Parser:
     res = ParseResultado()
     else_case = None
 
-    if self.current_tok.matches(TT_KEYWORD, 'ELSE'):
+    if self.current_tok.matches(TT_KEYWORD, 'ALIE'):
       res.registrar_avance()
       self.avanzar()
 
@@ -1032,7 +965,7 @@ class Parser:
     end_value = res.registrar(self.expr())
     if res.error: return res
 
-    if self.current_tok.matches(TT_KEYWORD, 'STEP'):
+    if self.current_tok.matches(TT_KEYWORD, 'PASO'):
       res.registrar_avance()
       self.avanzar()
 
@@ -1076,10 +1009,10 @@ class Parser:
   def while_expr(self):
     res = ParseResultado()
 
-    if not self.current_tok.matches(TT_KEYWORD, 'WHILE'):
+    if not self.current_tok.matches(TT_KEYWORD, 'DUM'):
       return res.failure(ErrorSintaxisInvalida(
         self.current_tok.posicion_inicial, self.current_tok.posicion_final,
-        f"Expected 'WHILE'"
+        f"Expected 'DUM'"
       ))
 
     res.registrar_avance()
@@ -1229,7 +1162,6 @@ class Parser:
       False
     ))
 
-  ###################################
 
   def bin_op(self, func_a, ops, func_b=None):
     if func_b == None:
@@ -1249,9 +1181,7 @@ class Parser:
 
     return res.success(left)
 
-#######################################
-# RUNTIME resultado
-#######################################
+# RESULTADO DE LA EJECUCION
 
 class RTresultado:
   def __init__(self):
@@ -1297,18 +1227,13 @@ class RTresultado:
     return self
 
   def should_return(self):
-    # Note: this will allow you to continue and break outside the current function
     return (
       self.error or
       self.func_return_value or
       self.loop_should_continue or
       self.loop_should_break
     )
-
-#######################################
-# VALUES
-#######################################
-
+  
 class Value:
   def __init__(self):
     self.set_pos()
@@ -1637,13 +1562,13 @@ class Function(BaseFunction):
 
   def execute(self, args):
     res = RTresultado()
-    interpreter = Interpreter()
+    semantico = AnalizadorSemantico()
     exec_ctx = self.generate_new_contexto()
 
     res.registrar(self.check_and_populate_args(self.arg_names, args, exec_ctx))
     if res.should_return(): return res
 
-    value = res.registrar(interpreter.visit(self.body_node, exec_ctx))
+    value = res.registrar(semantico.recorrer(self.body_node, exec_ctx))
     if res.should_return() and res.func_return_value == None: return res
 
     ret_value = (value if self.should_auto_return else None) or res.func_return_value or Number.null
@@ -1656,7 +1581,7 @@ class Function(BaseFunction):
     return copy
 
   def __repr__(self):
-    return f"<function {self.name}>"
+    return f"El nombre de la funcion es {self.name}>"
 
 class FuncionBuiltIn(BaseFunction):
   def __init__(self, name):
@@ -1667,7 +1592,7 @@ class FuncionBuiltIn(BaseFunction):
     exec_ctx = self.generate_new_contexto()
 
     method_name = f'execute_{self.name}'
-    method = getattr(self, method_name, self.no_visit_method)
+    method = getattr(self, method_name, self.no_recorrer_method)
 
     res.registrar(self.check_and_populate_args(method.arg_names, args, exec_ctx))
     if res.should_return(): return res
@@ -1676,7 +1601,7 @@ class FuncionBuiltIn(BaseFunction):
     if res.should_return(): return res
     return res.success(return_value)
 
-  def no_visit_method(self, node, contexto):
+  def no_recorrer_method(self, node, contexto):
     raise Exception(f'No execute_{self.name} method defined')
 
   def copy(self):
@@ -1831,40 +1756,40 @@ class SymbolTable:
 # INTERPRETER
 #######################################
 
-class Interpreter:
-  def visit(self, node, contexto):
-    method_name = f'visit_{type(node).__name__}'
-    method = getattr(self, method_name, self.no_visit_method)
+class AnalizadorSemantico:
+  def recorrer(self, node, contexto):
+    method_name = f'recorrer_{type(node).__name__}'
+    method = getattr(self, method_name, self.no_recorrer_method)
     return method(node, contexto)
 
-  def no_visit_method(self, node, contexto):
-    raise Exception(f'No visit_{type(node).__name__} method defined')
+  def no_recorrer_method(self, node, contexto):
+    raise Exception(f'No recorrer_{type(node).__name__} method defined')
 
   ###################################
 
-  def visit_NumberNode(self, node, contexto):
+  def recorrer_NumberNode(self, node, contexto):
     return RTresultado().success(
       Number(node.tok.value).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_StringNode(self, node, contexto):
+  def recorrer_StringNode(self, node, contexto):
     return RTresultado().success(
       String(node.tok.value).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_ListNode(self, node, contexto):
+  def recorrer_ListNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
     for element_node in node.element_nodes:
-      elements.append(res.registrar(self.visit(element_node, contexto)))
+      elements.append(res.registrar(self.recorrer(element_node, contexto)))
       if res.should_return(): return res
 
     return res.success(
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_VarAccessNode(self, node, contexto):
+  def recorrer_VarAccessNode(self, node, contexto):
     res = RTresultado()
     var_name = node.var_name_tok.value
     value = contexto.symbol_table.get(var_name)
@@ -1879,20 +1804,20 @@ class Interpreter:
     value = value.copy().set_pos(node.posicion_inicial, node.posicion_final).set_contexto(contexto)
     return res.success(value)
 
-  def visit_VarAssignNode(self, node, contexto):
+  def recorrer_VarAssignNode(self, node, contexto):
     res = RTresultado()
     var_name = node.var_name_tok.value
-    value = res.registrar(self.visit(node.value_node, contexto))
+    value = res.registrar(self.recorrer(node.value_node, contexto))
     if res.should_return(): return res
 
     contexto.symbol_table.set(var_name, value)
     return res.success(value)
 
-  def visit_BinOpNode(self, node, contexto):
+  def recorrer_BinOpNode(self, node, contexto):
     res = RTresultado()
-    left = res.registrar(self.visit(node.left_node, contexto))
+    left = res.registrar(self.recorrer(node.left_node, contexto))
     if res.should_return(): return res
-    right = res.registrar(self.visit(node.right_node, contexto))
+    right = res.registrar(self.recorrer(node.right_node, contexto))
     if res.should_return(): return res
 
     if node.op_tok.type == TT_PLUS:
@@ -1917,9 +1842,9 @@ class Interpreter:
       resultado, error = left.get_comparison_lte(right)
     elif node.op_tok.type == TT_GTE:
       resultado, error = left.get_comparison_gte(right)
-    elif node.op_tok.matches(TT_KEYWORD, 'AND'):
+    elif node.op_tok.matches(TT_KEYWORD, 'KAJ'):
       resultado, error = left.anded_by(right)
-    elif node.op_tok.matches(TT_KEYWORD, 'OR'):
+    elif node.op_tok.matches(TT_KEYWORD, 'AU'):
       resultado, error = left.ored_by(right)
 
     if error:
@@ -1927,16 +1852,16 @@ class Interpreter:
     else:
       return res.success(resultado.set_pos(node.posicion_inicial, node.posicion_final))
 
-  def visit_UnaryOpNode(self, node, contexto):
+  def recorrer_UnaryOpNode(self, node, contexto):
     res = RTresultado()
-    number = res.registrar(self.visit(node.node, contexto))
+    number = res.registrar(self.recorrer(node.node, contexto))
     if res.should_return(): return res
 
     error = None
 
     if node.op_tok.type == TT_MINUS:
       number, error = number.multed_by(Number(-1))
-    elif node.op_tok.matches(TT_KEYWORD, 'NOT'):
+    elif node.op_tok.matches(TT_KEYWORD, 'NE'):
       number, error = number.notted()
 
     if error:
@@ -1944,38 +1869,38 @@ class Interpreter:
     else:
       return res.success(number.set_pos(node.posicion_inicial, node.posicion_final))
 
-  def visit_IfNode(self, node, contexto):
+  def recorrer_IfNode(self, node, contexto):
     res = RTresultado()
 
     for condition, expr, should_return_null in node.cases:
-      condition_value = res.registrar(self.visit(condition, contexto))
+      condition_value = res.registrar(self.recorrer(condition, contexto))
       if res.should_return(): return res
 
       if condition_value.is_true():
-        expr_value = res.registrar(self.visit(expr, contexto))
+        expr_value = res.registrar(self.recorrer(expr, contexto))
         if res.should_return(): return res
         return res.success(Number.null if should_return_null else expr_value)
 
     if node.else_case:
       expr, should_return_null = node.else_case
-      expr_value = res.registrar(self.visit(expr, contexto))
+      expr_value = res.registrar(self.recorrer(expr, contexto))
       if res.should_return(): return res
       return res.success(Number.null if should_return_null else expr_value)
 
     return res.success(Number.null)
 
-  def visit_ForNode(self, node, contexto):
+  def recorrer_ForNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
-    start_value = res.registrar(self.visit(node.start_value_node, contexto))
+    start_value = res.registrar(self.recorrer(node.start_value_node, contexto))
     if res.should_return(): return res
 
-    end_value = res.registrar(self.visit(node.end_value_node, contexto))
+    end_value = res.registrar(self.recorrer(node.end_value_node, contexto))
     if res.should_return(): return res
 
     if node.step_value_node:
-      step_value = res.registrar(self.visit(node.step_value_node, contexto))
+      step_value = res.registrar(self.recorrer(node.step_value_node, contexto))
       if res.should_return(): return res
     else:
       step_value = Number(1)
@@ -1991,7 +1916,7 @@ class Interpreter:
       contexto.symbol_table.set(node.var_name_tok.value, Number(i))
       i += step_value.value
 
-      value = res.registrar(self.visit(node.body_node, contexto))
+      value = res.registrar(self.recorrer(node.body_node, contexto))
       if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False: return res
 
       if res.loop_should_continue:
@@ -2007,18 +1932,18 @@ class Interpreter:
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_WhileNode(self, node, contexto):
+  def recorrer_WhileNode(self, node, contexto):
     res = RTresultado()
     elements = []
 
     while True:
-      condition = res.registrar(self.visit(node.condition_node, contexto))
+      condition = res.registrar(self.recorrer(node.condition_node, contexto))
       if res.should_return(): return res
 
       if not condition.is_true():
         break
 
-      value = res.registrar(self.visit(node.body_node, contexto))
+      value = res.registrar(self.recorrer(node.body_node, contexto))
       if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False: return res
 
       if res.loop_should_continue:
@@ -2034,7 +1959,7 @@ class Interpreter:
       List(elements).set_contexto(contexto).set_pos(node.posicion_inicial, node.posicion_final)
     )
 
-  def visit_FuncDefNode(self, node, contexto):
+  def recorrer_FuncDefNode(self, node, contexto):
     res = RTresultado()
 
     func_name = node.var_name_tok.value if node.var_name_tok else None
@@ -2047,16 +1972,16 @@ class Interpreter:
 
     return res.success(func_value)
 
-  def visit_CallNode(self, node, contexto):
+  def recorrer_CallNode(self, node, contexto):
     res = RTresultado()
     args = []
 
-    value_to_call = res.registrar(self.visit(node.node_to_call, contexto))
+    value_to_call = res.registrar(self.recorrer(node.node_to_call, contexto))
     if res.should_return(): return res
     value_to_call = value_to_call.copy().set_pos(node.posicion_inicial, node.posicion_final)
 
     for arg_node in node.arg_nodes:
-      args.append(res.registrar(self.visit(arg_node, contexto)))
+      args.append(res.registrar(self.recorrer(arg_node, contexto)))
       if res.should_return(): return res
 
     return_value = res.registrar(value_to_call.execute(args))
@@ -2064,26 +1989,22 @@ class Interpreter:
     return_value = return_value.copy().set_pos(node.posicion_inicial, node.posicion_final).set_contexto(contexto)
     return res.success(return_value)
 
-  def visit_ReturnNode(self, node, contexto):
+  def recorrer_ReturnNode(self, node, contexto):
     res = RTresultado()
 
     if node.node_to_return:
-      value = res.registrar(self.visit(node.node_to_return, contexto))
+      value = res.registrar(self.recorrer(node.node_to_return, contexto))
       if res.should_return(): return res
     else:
       value = Number.null
 
     return res.success_return(value)
 
-  def visit_ContinueNode(self, node, contexto):
+  def recorrer_ContinueNode(self, node, contexto):
     return RTresultado().success_continue()
 
-  def visit_BreakNode(self, node, contexto):
+  def recorrer_BreakNode(self, node, contexto):
     return RTresultado().success_break()
-
-#######################################
-# RUN
-#######################################
 
 tabla_simbolos_global = SymbolTable()
 tabla_simbolos_global.set("NULL", Number.null)
@@ -2105,19 +2026,67 @@ tabla_simbolos_global.set("RUN", FuncionBuiltIn.run)
 
 def run(nombre_archivo, text):
   # Generate tokens
-  lexer = Lexer(nombre_archivo, text)
-  tokens, error = lexer.make_tokens()
+  lexico = AnalizadorLexico(nombre_archivo, text)
+  tokens, error = lexico.make_tokens()
   if error: return None, error
 
   # Generate AST
-  parser = Parser(tokens)
-  ast = parser.parse()
+  sntactico = AnalizadorSintactico(tokens)
+  ast = sntactico.parse()
   if ast.error: return None, ast.error
 
   # Run program
-  interpreter = Interpreter()
+  semantico = AnalizadorSemantico()
   contexto = Context('<program>')
   contexto.symbol_table = tabla_simbolos_global
-  resultado = interpreter.visit(ast.node, contexto)
+  resultado = semantico.recorrer(ast.node, contexto)
 
   return resultado.value, resultado.error
+
+class ManejoErrores:
+  def __init__(self, posicion_inicial, posicion_final, tipo_error, detalles):
+    self.posicion_inicial = posicion_inicial
+    self.posicion_final = posicion_final
+    self.tipo_error = tipo_error
+    self.detalles = detalles
+
+  def como_string(self):
+    resultado  = f'{"Lista errores"}: {self.detalles}\n'
+    resultado += f'Archivo {self.posicion_inicial.nombre_archivo}, linea {self.posicion_inicial.ln + 1}'
+    resultado += '\n\n' + string_with_arrows(self.posicion_inicial.texto_archivo, self.posicion_inicial, self.posicion_final)
+    return resultado
+
+class ErrorCaracterIlegal(ManejoErrores):
+  def __init__(self, posicion_inicial, posicion_final, detalles):
+    super().__init__(posicion_inicial, posicion_final, 'Caracter Ilegal', detalles)
+
+class ErrorCaracterEsperado(ManejoErrores):
+  def __init__(self, posicion_inicial, posicion_final, detalles):
+    super().__init__(posicion_inicial, posicion_final, 'Se esperaba un caracter.', detalles)
+
+class ErrorSintaxisInvalida(ManejoErrores):
+  def __init__(self, posicion_inicial, posicion_final, detalles=''):
+    super().__init__(posicion_inicial, posicion_final, 'Sintaxis Invalida', detalles)
+
+class ErrorTiempoEjecucion(ManejoErrores):
+  def __init__(self, posicion_inicial, posicion_final, detalles, contexto):
+    super().__init__(posicion_inicial, posicion_final, 'Error Tiempo de Ejecucion', detalles)
+    self.contexto = contexto
+
+  def as_string(self):
+    resultado  = self.generar_rastreo()
+    resultado += f'{"Hola como estas"}'
+    resultado += '\n\n' + string_with_arrows(self.posicion_inicial.texto_archivo, self.posicion_inicial, self.posicion_final)
+    return resultado
+
+  def generar_rastreo(self):
+    resultado = ''
+    pos = self.posicion_inicial
+    ctx = self.contexto
+
+    while ctx:
+      resultado = f'  File {pos.nombre_archivo}, line {str(pos.ln + 1)}, in {ctx.display_name}\n' + resultado
+      pos = ctx.parent_entry_pos
+      ctx = ctx.parent
+
+    return 'Rastreo (la ultima llamada mas reciente):\n' + resultado

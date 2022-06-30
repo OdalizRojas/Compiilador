@@ -13,7 +13,7 @@ def set_file_path(path):
     file_path = path
 
 def open_file():
-    path = askopenfilename(filetypes=[('Python Files', '*.myopl')])
+    path = askopenfilename(filetypes=[('Esperanto Files', '*.esp')])
     with open(path, 'r') as file:
         code = file.read()
         editor.delete('1.0', END)
@@ -24,7 +24,7 @@ def save_as():
     if file_path == '':
         pass
     else:
-        path = asksaveasfilename(filetypes=[('Python Files', '*.myopl')])
+        path = asksaveasfilename(filetypes=[('Esperanto Files', '*.esp')])
         path = file_path
     with open(path, 'w') as file:
         code = editor.get('1.0', END)
